@@ -66,5 +66,24 @@ def delete_post(post_id):
     }), 404
 
 
+@app.route("/api/posts/<int:post_id>", methods=["PUT"])
+def update_post(post_id):
+    daten = request.get_json(silent=True)
+
+    for post in POSTS:
+        if post["id"] == post_id:
+            if daten is not None:
+                if "title" in daten:
+                    post["title"] = daten["title"]
+                if "content" in daten:
+                    post["content"] = daten["content"]
+
+            return jsonify(post), 200
+
+    return jsonify({
+        "message": f"Post with id {post_id} was not found."
+    }), 404
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5002, debug=True)
