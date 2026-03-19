@@ -85,5 +85,22 @@ def update_post(post_id):
     }), 404
 
 
+@app.route("/api/posts/search", methods=["GET"])
+def search_posts():
+    title_query = request.args.get("title", "").strip().lower()
+    content_query = request.args.get("content", "").strip().lower()
+
+    ergebnisse = []
+
+    for post in POSTS:
+        title_match = title_query in post["title"].lower() if title_query else True
+        content_match = content_query in post["content"].lower() if content_query else True
+
+        if title_match and content_match:
+            ergebnisse.append(post)
+
+    return jsonify(ergebnisse), 200
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5002, debug=True)
