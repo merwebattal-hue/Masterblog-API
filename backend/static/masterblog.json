@@ -1,0 +1,180 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Masterblog API",
+    "version": "1.0.0",
+    "description": "API documentation for the Masterblog Flask project"
+  },
+  "basePath": "/",
+  "schemes": ["http"],
+  "tags": [
+    {
+      "name": "Post",
+      "description": "Post API - CRUD, Search and Sort"
+    }
+  ],
+  "paths": {
+    "/api/posts": {
+      "get": {
+        "summary": "Returns all posts",
+        "description": "Returns all blog posts. Supports optional sorting with sort and direction query parameters.",
+        "produces": ["application/json"],
+        "tags": ["Post"],
+        "parameters": [
+          {
+            "name": "sort",
+            "in": "query",
+            "type": "string",
+            "required": false,
+            "enum": ["title", "content"],
+            "description": "Field to sort by"
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "type": "string",
+            "required": false,
+            "enum": ["asc", "desc"],
+            "description": "Sort direction"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation"
+          },
+          "400": {
+            "description": "Invalid sort field or direction"
+          }
+        }
+      },
+      "post": {
+        "summary": "Creates a new post",
+        "produces": ["application/json"],
+        "consumes": ["application/json"],
+        "tags": ["Post"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["title", "content"],
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "example": "My new post"
+                },
+                "content": {
+                  "type": "string",
+                  "example": "This is the content of my new post."
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Post created successfully"
+          },
+          "400": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/api/posts/search": {
+      "get": {
+        "summary": "Search posts by title and/or content",
+        "produces": ["application/json"],
+        "tags": ["Post"],
+        "parameters": [
+          {
+            "name": "title",
+            "in": "query",
+            "type": "string",
+            "required": false,
+            "description": "Search text in post title"
+          },
+          {
+            "name": "content",
+            "in": "query",
+            "type": "string",
+            "required": false,
+            "description": "Search text in post content"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation"
+          }
+        }
+      }
+    },
+    "/api/posts/{post_id}": {
+      "put": {
+        "summary": "Updates an existing post",
+        "produces": ["application/json"],
+        "consumes": ["application/json"],
+        "tags": ["Post"],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "description": "ID of the post to update"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "example": "Updated title"
+                },
+                "content": {
+                  "type": "string",
+                  "example": "Updated content"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post updated successfully"
+          },
+          "404": {
+            "description": "Post not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Deletes a post by ID",
+        "produces": ["application/json"],
+        "tags": ["Post"],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "description": "ID of the post to delete"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post deleted successfully"
+          },
+          "404": {
+            "description": "Post not found"
+          }
+        }
+      }
+    }
+  }
+}
