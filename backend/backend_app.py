@@ -1,3 +1,5 @@
+import json
+import os
 from datetime import datetime
 
 from flask import Flask, jsonify, request
@@ -20,7 +22,10 @@ swagger_ui_blueprint = get_swaggerui_blueprint(
 
 app.register_blueprint(swagger_ui_blueprint, url_prefix=SWAGGER_URL)
 
-POSTS = [
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+POSTS_FILE = os.path.join(BASE_DIR, "posts.json")
+
+DEFAULT_POSTS = [
     {
         "id": 1,
         "title": "First post",
@@ -46,22 +51,51 @@ def is_valid_date(date_string):
         return False
 
 
+def ensure_posts_file_exists():
+    if not os.path.exists(POSTS_FILE):
+        with open(POSTS_FILE, "w", encoding="utf-8") as file:
+            json.dump(DEFAULT_POSTS, file, ensure_ascii=False, indent=2)
+
+
+def load_posts():
+    ensure_posts_file_exists()
+
+    with open(POSTS_FILE, "r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    if not isinstance(data, list):
+        raise ValueError("posts.json must contain a list of posts.")
+
+    return data
+
+
+def save_posts(posts):
+    with open(POSTS_FILE, "w", encoding="utf-8") as file:
+        json.dump(posts, file, ensure_ascii=False, indent=2)
+
+
+def get_next_id(posts):
+    return max(post["id"] for post in posts) + 1 if posts else 1
+
+
 @app.route("/api/posts", methods=["GET"])
 def get_posts():
+    try:
+        posts = load_posts()
+    except (OSError, json.JSONDecodeError, ValueError):
+        return jsonify({
+            "message": "Failed to read posts data."
+        }), 500
+
     sort_field = request.args.get("sort")
     direction = request.args.get("direction")
 
     if sort_field is None and direction is None:
-        return jsonify(POSTS), 200
-
-    if sort_field is None:
-        return jsonify({
-            "message": "Invalid sort field. Allowed values are 'title', 'content', 'author' or 'date'."
-        }), 400
+        return jsonify(posts), 200
 
     valid_sort_fields = ["title", "content", "author", "date"]
 
-    if sort_field not in valid_sort_fields:
+    if sort_field is None or sort_field not in valid_sort_fields:
         return jsonify({
             "message": "Invalid sort field. Allowed values are 'title', 'content', 'author' or 'date'."
         }), 400
@@ -78,13 +112,13 @@ def get_posts():
 
     if sort_field == "date":
         sorted_posts = sorted(
-            POSTS,
+            posts,
             key=lambda post: datetime.strptime(post["date"], "%Y-%m-%d"),
             reverse=reverse_sort
         )
     else:
         sorted_posts = sorted(
-            POSTS,
+            posts,
             key=lambda post: str(post[sort_field]).lower(),
             reverse=reverse_sort
         )
@@ -103,7 +137,6 @@ def add_post():
         }), 400
 
     fehlende_felder = []
-
     required_fields = ["title", "content", "author", "date"]
 
     for feld in required_fields:
@@ -121,26 +154,53 @@ def add_post():
             "fehler": "Invalid date format. Use YYYY-MM-DD."
         }), 400
 
-    neue_id = max(post["id"] for post in POSTS) + 1 if POSTS else 1
+    try:
+        posts = load_posts()
+    except (OSError, json.JSONDecodeError, ValueError):
+        return jsonify({
+            "message": "Failed to read posts data."
+        }), 500
 
     neuer_post = {
-        "id": neue_id,
+        "id": get_next_id(posts),
         "title": daten["title"],
         "content": daten["content"],
         "author": daten["author"],
         "date": daten["date"]
     }
 
-    POSTS.append(neuer_post)
+    posts.append(neuer_post)
+
+    try:
+        save_posts(posts)
+    except OSError:
+        return jsonify({
+            "message": "Failed to save posts data."
+        }), 500
 
     return jsonify(neuer_post), 201
 
 
 @app.route("/api/posts/<int:post_id>", methods=["DELETE"])
 def delete_post(post_id):
-    for post in POSTS:
+    try:
+        posts = load_posts()
+    except (OSError, json.JSONDecodeError, ValueError):
+        return jsonify({
+            "message": "Failed to read posts data."
+        }), 500
+
+    for post in posts:
         if post["id"] == post_id:
-            POSTS.remove(post)
+            posts.remove(post)
+
+            try:
+                save_posts(posts)
+            except OSError:
+                return jsonify({
+                    "message": "Failed to save posts data."
+                }), 500
+
             return jsonify({
                 "message": f"Post with id {post_id} has been deleted successfully."
             }), 200
@@ -154,7 +214,14 @@ def delete_post(post_id):
 def update_post(post_id):
     daten = request.get_json(silent=True)
 
-    for post in POSTS:
+    try:
+        posts = load_posts()
+    except (OSError, json.JSONDecodeError, ValueError):
+        return jsonify({
+            "message": "Failed to read posts data."
+        }), 500
+
+    for post in posts:
         if post["id"] == post_id:
             if daten is not None:
                 if "title" in daten:
@@ -170,6 +237,13 @@ def update_post(post_id):
                         }), 400
                     post["date"] = daten["date"]
 
+            try:
+                save_posts(posts)
+            except OSError:
+                return jsonify({
+                    "message": "Failed to save posts data."
+                }), 500
+
             return jsonify(post), 200
 
     return jsonify({
@@ -179,8 +253,14 @@ def update_post(post_id):
 
 @app.route("/api/posts/search", methods=["GET"])
 def search_posts():
-    search_query = request.args.get("search", "").strip().lower()
+    try:
+        posts = load_posts()
+    except (OSError, json.JSONDecodeError, ValueError):
+        return jsonify({
+            "message": "Failed to read posts data."
+        }), 500
 
+    search_query = request.args.get("search", "").strip().lower()
     title_query = request.args.get("title", "").strip().lower()
     content_query = request.args.get("content", "").strip().lower()
     author_query = request.args.get("author", "").strip().lower()
@@ -188,7 +268,7 @@ def search_posts():
 
     ergebnisse = []
 
-    for post in POSTS:
+    for post in posts:
         general_match = True
         if search_query:
             general_match = (
