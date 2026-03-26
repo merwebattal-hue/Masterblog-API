@@ -89,3 +89,10 @@ body {
 .post button:hover {
     background-color: #cc0000;
 }
+.post p {
+    margin: 6px 0;
+}
+
+.post strong {
+    color: #333;
+}
